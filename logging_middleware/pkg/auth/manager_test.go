@@ -78,12 +78,12 @@ func TestManager_Retries(t *testing.T) {
 	// Context with timeout to prevent long test if backoff goes crazy
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	_, err := manager.GetToken(ctx)
 	if err == nil {
 		t.Fatalf("expected error due to failing client")
 	}
-	
+
 	// Should have retried multiple times (1 initial + 3 retries = 4)
 	if client.callCount != 4 {
 		t.Errorf("expected 4 client calls (due to retries), got %d", client.callCount)

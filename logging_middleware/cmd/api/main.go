@@ -11,7 +11,9 @@ import (
 
 	"github.com/affordmed/logging_middleware/pkg/auth"
 	"github.com/affordmed/logging_middleware/pkg/config"
+	"github.com/affordmed/logging_middleware/pkg/database"
 	"github.com/affordmed/logging_middleware/pkg/logger"
+	"github.com/affordmed/logging_middleware/pkg/outbox"
 )
 
 func main() {
@@ -25,6 +27,40 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// Initialize Postgres Database
+	dbConfig := database.Config{
+		Host:     cfg.Postgres.Host,
+		Port:     cfg.Postgres.Port,
+		User:     cfg.Postgres.User,
+		Password: cfg.Postgres.Password,
+		DBName:   cfg.Postgres.DB,
+	}
+	db, err := database.Connect(ctx, dbConfig)
+	if err != nil {
+		log.Fatalf("failed to connect to database: %v", err)
+	}
+	defer db.Close()
+
+	// Run bare-minimum migration for Outbox if needed (For testing local setup)
+	migrationQuery := `
+		CREATE TABLE IF NOT EXISTS outbox_events (
+			id UUID PRIMARY KEY,
+			aggregate_id UUID NOT NULL,
+			aggregate_type VARCHAR(255) NOT NULL,
+			event_type VARCHAR(255) NOT NULL,
+			payload JSONB NOT NULL,
+			status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+			retries INT NOT NULL DEFAULT 0,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+			processed_at TIMESTAMP WITH TIME ZONE
+		);
+	`
+	if _, err := db.ExecContext(ctx, migrationQuery); err != nil {
+		log.Fatalf("failed to run outbox migration: %v", err)
+	}
+
+	outboxRepo := outbox.NewPostgresRepository(db)
 
 	// Initialize Auth Module
 	authClient := auth.NewAuthClient(cfg.Auth.BaseURL)
@@ -59,6 +95,7 @@ func main() {
 		QueueSize:     cfg.Logger.QueueSize,
 		MaxRetries:    cfg.Logger.MaxRetries,
 		HTTPClient:    httpClient,
+		OutboxRepo:    outboxRepo,
 	}
 
 	logService := logger.NewLogger(loggerCfg)

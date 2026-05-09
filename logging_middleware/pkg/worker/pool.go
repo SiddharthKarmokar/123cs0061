@@ -21,6 +21,8 @@ type LogTask struct {
 	Payload    interface{}
 	MaxRetries int
 	HTTPClient *http.Client
+	OnSuccess  func(ctx context.Context)
+	OnFailure  func(ctx context.Context, err error)
 }
 
 func (t *LogTask) Execute(ctx context.Context) error {
@@ -44,6 +46,9 @@ func (t *LogTask) Execute(ctx context.Context) error {
 			_ = resp.Body.Close()
 			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 				// Success
+				if t.OnSuccess != nil {
+					t.OnSuccess(ctx)
+				}
 				return nil
 			}
 			lastErr = fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -62,6 +67,9 @@ func (t *LogTask) Execute(ctx context.Context) error {
 		}
 	}
 
+	if t.OnFailure != nil {
+		t.OnFailure(ctx, lastErr)
+	}
 	return fmt.Errorf("max retries reached, last error: %w", lastErr)
 }
 

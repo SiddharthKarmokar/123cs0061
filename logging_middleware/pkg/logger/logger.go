@@ -6,7 +6,11 @@ import (
 	"net/http"
 	"time"
 
+	"encoding/json"
+
+	"github.com/affordmed/logging_middleware/pkg/outbox"
 	"github.com/affordmed/logging_middleware/pkg/worker"
+	"github.com/google/uuid"
 )
 
 // Logger is the core interface for the logging platform.
@@ -23,6 +27,7 @@ type Config struct {
 	QueueSize     int
 	MaxRetries    int
 	HTTPClient    *http.Client
+	OutboxRepo    outbox.Repository
 }
 
 type defaultLogger struct {
@@ -77,11 +82,40 @@ func (l *defaultLogger) Log(stack, level, pkg, message string) error {
 		return fmt.Errorf("invalid log payload: %w", err)
 	}
 
+	var outboxID uuid.UUID
+	if l.config.OutboxRepo != nil {
+		outboxID = uuid.New()
+		payloadBytes, _ := json.Marshal(payload)
+		event := outbox.Event{
+			ID:            outboxID,
+			AggregateID:   uuid.New(),
+			AggregateType: "Logger",
+			EventType:     "LogCreated",
+			Payload:       payloadBytes,
+			Status:        "PENDING",
+			Retries:       0,
+			CreatedAt:     time.Now(),
+		}
+		if err := l.config.OutboxRepo.SaveEvent(context.Background(), event); err != nil {
+			return fmt.Errorf("failed to save log to outbox: %w", err)
+		}
+	}
+
 	task := &worker.LogTask{
 		URL:        l.config.EvaluationURL,
 		Payload:    payload,
 		MaxRetries: l.config.MaxRetries,
 		HTTPClient: l.httpClient,
+		OnSuccess: func(ctx context.Context) {
+			if l.config.OutboxRepo != nil && outboxID != uuid.Nil {
+				_ = l.config.OutboxRepo.MarkProcessed(context.Background(), outboxID)
+			}
+		},
+		OnFailure: func(ctx context.Context, err error) {
+			if l.config.OutboxRepo != nil && outboxID != uuid.Nil {
+				_ = l.config.OutboxRepo.MarkFailed(context.Background(), outboxID)
+			}
+		},
 	}
 
 	if err := l.pool.Submit(task); err != nil {
