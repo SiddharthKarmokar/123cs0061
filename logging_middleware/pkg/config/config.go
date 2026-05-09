@@ -53,13 +53,15 @@ type RedisConfig struct {
 }
 
 type AuthConfig struct {
-	BaseURL      string `env:"AUTH_BASE_URL" env-required:"true"`
-	Email        string `env:"AUTH_EMAIL" env-required:"true"`
-	Name         string `env:"AUTH_NAME" env-required:"true"`
-	RollNo       string `env:"AUTH_ROLL_NO" env-required:"true"`
-	AccessCode   string `env:"AUTH_ACCESS_CODE" env-required:"true"`
-	ClientID     string `env:"AUTH_CLIENT_ID" env-required:"true"`
-	ClientSecret string `env:"AUTH_CLIENT_SECRET" env-required:"true"`
+	BaseURL        string `env:"AUTH_BASE_URL"`
+	Email          string `env:"AUTH_EMAIL"`
+	Name           string `env:"AUTH_NAME"`
+	RollNo         string `env:"AUTH_ROLL_NO"`
+	AccessCode     string `env:"AUTH_ACCESS_CODE"`
+	ClientID       string `env:"AUTH_CLIENT_ID"`
+	ClientSecret   string `env:"AUTH_CLIENT_SECRET"`
+	UseStaticToken bool   `env:"AUTH_USE_STATIC_TOKEN" env-default:"false"`
+	StaticToken    string `env:"AUTH_STATIC_TOKEN"`
 }
 
 type LoggerConfig struct {

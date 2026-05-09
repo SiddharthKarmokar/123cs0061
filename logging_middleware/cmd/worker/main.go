@@ -8,8 +8,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/affordmed/logging_middleware/internal/platform/auth"
-	"github.com/affordmed/logging_middleware/internal/platform/config"
+	"github.com/affordmed/logging_middleware/pkg/auth"
+	"github.com/affordmed/logging_middleware/pkg/config"
 )
 
 func main() {
@@ -35,7 +35,7 @@ func main() {
 		ClientSecret: cfg.Auth.ClientSecret,
 	}
 
-	tokenManager := auth.NewTokenManager(authClient, authReq)
+	tokenManager := auth.NewTokenManager(authClient, authReq, cfg.Auth.UseStaticToken, cfg.Auth.StaticToken)
 
 	// Start token manager background refresh
 	tokenManager.Start(ctx)

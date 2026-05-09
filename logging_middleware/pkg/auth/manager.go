@@ -9,25 +9,34 @@ import (
 )
 
 type defaultTokenManager struct {
-	client      AuthClient
-	cache       *tokenCache
-	credentials AuthRequest
-	refreshMu   sync.Mutex // Prevent refresh stampede
-	quit        chan struct{}
-	wg          sync.WaitGroup
+	client         AuthClient
+	cache          *tokenCache
+	credentials    AuthRequest
+	refreshMu      sync.Mutex // Prevent refresh stampede
+	quit           chan struct{}
+	wg             sync.WaitGroup
+	useStaticToken bool
+	staticToken    string
 }
 
 // NewTokenManager creates a new manager for handling auth tokens.
-func NewTokenManager(client AuthClient, creds AuthRequest) TokenManager {
+func NewTokenManager(client AuthClient, creds AuthRequest, useStatic bool, staticToken string) TokenManager {
 	return &defaultTokenManager{
-		client:      client,
-		cache:       newTokenCache(),
-		credentials: creds,
-		quit:        make(chan struct{}),
+		client:         client,
+		cache:          newTokenCache(),
+		credentials:    creds,
+		quit:           make(chan struct{}),
+		useStaticToken: useStatic,
+		staticToken:    staticToken,
 	}
 }
 
 func (m *defaultTokenManager) Start(ctx context.Context) {
+	if m.useStaticToken {
+		log.Println("DEBUG MODE: Using static token, skipping auth endpoints.")
+		return
+	}
+
 	// Perform initial synchronous auth, but don't fail the entire app if the auth server is temporarily down
 	if _, err := m.ForceRefresh(ctx); err != nil {
 		log.Printf("WARNING: failed initial authentication, will retry in background: %v", err)
@@ -43,6 +52,10 @@ func (m *defaultTokenManager) Stop() {
 }
 
 func (m *defaultTokenManager) GetToken(ctx context.Context) (string, error) {
+	if m.useStaticToken {
+		return m.staticToken, nil
+	}
+
 	if token, valid := m.cache.get(); valid {
 		return token, nil
 	}
@@ -50,6 +63,10 @@ func (m *defaultTokenManager) GetToken(ctx context.Context) (string, error) {
 }
 
 func (m *defaultTokenManager) ForceRefresh(ctx context.Context) (string, error) {
+	if m.useStaticToken {
+		return m.staticToken, nil
+	}
+
 	m.refreshMu.Lock()
 	defer m.refreshMu.Unlock()
 

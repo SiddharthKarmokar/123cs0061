@@ -106,10 +106,16 @@ func (p *Pool) Start(ctx context.Context) {
 // Submit adds a new task to the queue. Does not block unless the queue is full.
 func (p *Pool) Submit(task Task) error {
 	select {
-	case p.tasks <- task:
-		return nil
 	case <-p.quit:
 		return fmt.Errorf("pool is stopped")
+	default:
+	}
+
+	select {
+	case <-p.quit:
+		return fmt.Errorf("pool is stopped")
+	case p.tasks <- task:
+		return nil
 	default:
 		return fmt.Errorf("task queue is full")
 	}
@@ -119,5 +125,4 @@ func (p *Pool) Submit(task Task) error {
 func (p *Pool) Stop() {
 	close(p.quit)
 	p.wg.Wait()
-	close(p.tasks)
 }

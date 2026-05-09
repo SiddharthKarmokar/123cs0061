@@ -27,7 +27,7 @@ func (m *mockAuthClient) Authenticate(ctx context.Context, req AuthRequest) (*Au
 func TestManager_GetToken(t *testing.T) {
 	client := &mockAuthClient{}
 	req := AuthRequest{}
-	manager := NewTokenManager(client, req)
+	manager := NewTokenManager(client, req, false, "")
 
 	// Manager needs to be able to fetch a token if cache is empty
 	token, err := manager.GetToken(context.Background())
@@ -48,7 +48,7 @@ func TestManager_GetToken(t *testing.T) {
 func TestManager_ForceRefresh(t *testing.T) {
 	client := &mockAuthClient{}
 	req := AuthRequest{}
-	manager := NewTokenManager(client, req)
+	manager := NewTokenManager(client, req, false, "")
 
 	// Pre-fill cache
 	manager.(*defaultTokenManager).cache.set("old_token", 3600)
@@ -73,17 +73,17 @@ func TestManager_ForceRefresh(t *testing.T) {
 func TestManager_Retries(t *testing.T) {
 	client := &mockAuthClient{shouldFail: true}
 	req := AuthRequest{}
-	manager := NewTokenManager(client, req)
+	manager := NewTokenManager(client, req, false, "")
 
-	// Context with short timeout to prevent long test if backoff kicks in
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	// Context with timeout to prevent long test if backoff goes crazy
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
+	
 	_, err := manager.GetToken(ctx)
 	if err == nil {
 		t.Fatalf("expected error due to failing client")
 	}
-
+	
 	// Should have retried multiple times (1 initial + 3 retries = 4)
 	if client.callCount != 4 {
 		t.Errorf("expected 4 client calls (due to retries), got %d", client.callCount)

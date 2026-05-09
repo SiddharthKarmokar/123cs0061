@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/affordmed/logging_middleware/internal/platform/worker"
+	"github.com/affordmed/logging_middleware/pkg/worker"
 )
 
 // Logger is the core interface for the logging platform.
