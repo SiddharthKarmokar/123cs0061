@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package logging.v1;
+
+option go_package = "github.com/affordmed/logging_middleware/internal/shared/contracts/logging/v1;loggingv1";
+
+service LoggingService {
+  rpc LogEvent(LogEventRequest) returns (LogEventResponse) {}
+}
+
+message LogEventRequest {
+  string stack = 1;
+  string level = 2;
+  string package = 3;
+  string message = 4;
+}
+
+message LogEventResponse {
+  bool success = 1;
+  string id = 2;
+}
